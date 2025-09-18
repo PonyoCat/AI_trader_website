@@ -1,0 +1,240 @@
+/* Reset og basislayout */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; width: 100%; }
+
+/* Tema og typografi fra din oprindelige fil */
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Links */
+a {
+  font-weight: 500;
+  color: #6a71f1;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+/* Body: fjernet centrerende flex fra din fil, så appen kan fylde hele skærmen */
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  display: block;
+  /* baggrund og farver styres af :root + media query */
+}
+
+/* App-shell klasser til fuld skærm */
+.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+
+  background-color: #ffffff;      /* fuld baggrund i hele header-bjælken */
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.app-main { flex: 1 1 auto; display: block; }
+.app-container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+/* ManualTrader tab-knapper */
+.manual-tabs button {
+  background: transparent;
+  border: 1px solid #374151;      /* mørk kant i dark mode */
+  color: inherit;
+  transition: background-color 120ms ease;
+}
+.manual-tabs button:hover { background: rgba(255,255,255,0.06); }
+.manual-tabs button:active { background: rgba(255,255,255,0.10); }
+
+/* Aktiv fane (dark) */
+.manual-tabs button.active {
+  background: #1f2937 !important; /* mørk grå i dark mode */
+  border-color: #6b7280;
+  color: #fff;
+}
+
+
+
+
+/* Overskrifter og knapper (som i din fil) */
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tab-border: #374151;
+    --tab-active-bg: #00418b; /* mørk i dark mode */
+  }
+}
+/* dark mode */
+@media (prefers-color-scheme: dark) {
+  .app-header {
+    background-color: #01070f;    /* mørk baggrund */
+    border-bottom-color: #374151;
+  }
+}
+/* Light-mode tilpasning som i din fil */
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #eeeeee;
+  }
+  a:hover { color: #747bff; }
+  button { background-color: #cc6565; }
+}
+.app-header .app-container {
+  max-width: none;     /* header fylder hele bredden */
+  padding-left: 32px;   /* ryk tættere på venstre kant */
+  padding-right: 16px; /* behold lidt luft til højre */
+}
+
+/* Navigation i header: større afstand mellem links/knapper */
+.app-header nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;           /* øg spacing i nav */
+}
+
+/* Navigation links hvis de står i et <nav> */
+.nav {
+  display: flex;
+  align-items: center;
+}
+
+.nav a {
+  font-family: "Inconsolata", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-weight: 600;     /* matcher importeret vægt */
+  letter-spacing: 0.2px;/* lille optisk justering til monospace */
+}
+
+/* Højre side i header (ConnectionBadge + LoginButton): mere spacing */
+.app-header .app-container > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 20px !important;  /* overskriver inline gap fra AppLayout */
+}
+
+/* Header-actions specifikt */
+.header-actions { 
+  display: flex;
+  align-items: center;
+  gap: 20px;            /* større afstand i headerens højre side */
+}
+
+:root {
+  font-family: "Inconsolata", "Inconsolata",
+               ui-monospace, SFMono-Regular, Menlo, Consolas,
+               "Liberation Mono", monospace;
+  line-height: 1.5;
+  font-weight: 400;
+  /* resten uændret */
+}
+
+/* panel layout med header, indhold, actions */
+.panel {                               
+  display: grid;                       
+  grid-template-rows: auto 1fr auto;   
+  gap: 12px;                           
+  border: 1px solid #e5e7eb;           
+  border-radius: 12px;                 
+  padding: 12px;                       
+  min-height: 360px;                   
+}                                       
+
+.textbox {                              
+  position: relative;                   
+}                                       
+
+.textbox textarea {                     
+  padding-right: 44px;                   /* plads til kopi knap */
+}                                       
+
+.copy-btn {                             
+  position: absolute;                   
+  top: 50%;                             
+  right: 8px;                           
+  transform: translateY(-50%);          
+  width: 28px;                          
+  height: 28px;                         
+  display: inline-flex;                 
+  align-items: center;                  
+  justify-content: center;              
+  background: transparent;              
+  border: 1px solid #e5e7eb;            
+  border-radius: 8px;                   
+  cursor: pointer;                      
+}                                       
+
+.copy-btn:hover {                       
+  background: rgba(0,0,0,0.04);         
+}                                       
+button { margin: 0 10px; }
+/* Genbrugelig række med spacing mellem børn */
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;            /* justér tallet for mere/mindre rum */
+  flex-wrap: wrap;      /* gør pænere på små skærme */
+}
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: background-color 120ms ease, transform 50ms ease;
+}
+button:hover { border-color: #646cff; }
+button:focus,
+button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
+
+button:active {
+  background-color: #0f0f0f;          /* en anelse mørkere ved klik */
+  transform: translateY(1px);
+}
+.actions {                              
+  display: flex;                        
+  gap: 12px;                            
+  justify-content: flex-start;            
+  flex-wrap: wrap;                      
+}                                       
+
+/* gør en række “fuld bredde” – udligner panel-padding i siderne */
+.flush-x {
+  margin-left: calc(var(--pad) * -1);
+  margin-right: calc(var(--pad) * -1);
+  padding-left: var(--pad);
+  padding-right: var(--pad);
+}
+
+/* fordeler første/sidste knap til venstre/højre kant */
+.row-between {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+:root {
+  --tab-border: #e5e7eb;
+  --tab-active-bg: #e5e7eb;   /* light */
+}
