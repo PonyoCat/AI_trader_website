@@ -13,3 +13,14 @@ class ChatProvider(Protocol):
         max_tokens: int = 2048,
         extra: Optional[Dict[str, Any]] = None
     ) -> str: ...
+
+    async def web_search(
+        self,
+        prompt: str,
+        *,
+        model: Optional[str] = None,
+        temperature: float = 0.2,
+        max_tokens: int = 1024,
+        extra: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Performs a grounded web search and returns both text and metadata."""

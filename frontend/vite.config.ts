@@ -1,19 +1,22 @@
-// vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// ESM-safe __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    host: "127.0.0.1",
-    port: 5173,
-    strictPort: true,
-    hmr: { host: "127.0.0.1", protocol: "ws", port: 5173 },
+  resolve: {
+    alias: {
+      "@shared": path.resolve(__dirname, "../shared"),
+    },
   },
-  preview: {
-    host: "127.0.0.1",
-    port: 4173,
-    strictPort: true,
+  server: {
+    fs: {
+      allow: [path.resolve(__dirname, "../shared")],
+    },
   },
 });
-

@@ -1,103 +1,163 @@
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
-import datetime as dt
+from typing import Dict, Any, List, Optional
+from pathlib import Path
+import json
+import os
 
 from app.adapters.ai.chat_provider_registry import ProviderRegistry
+from app.adapters.ai.chat_provider import ChatProvider
+from app.adapters.ai.provider_openai import OpenAIProvider  # antag filnavn
 
-SYSTEM_RESEARCH_PROMPT = (
-    "Du er en aktieanalytiker med fokus på small og micro cap. "
-    "Producerer nøgterne, kildekritiske noter. "
-    "Hvis viden er usikker, markeres det tydeligt."
-)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PROMPTS_DIR = REPO_ROOT / "shared" / "prompts" / "ai_trader"
 
-def _msg(role: str, content: str) -> Dict[str, str]:
-    return {"role": role, "content": content}
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8").strip()
 
-class DeepResearchEngine:
-    def __init__(self, registry: ProviderRegistry, default_provider: str, default_model: str) -> None:
-        self.registry = registry
-        self.default_provider = default_provider
-        self.default_model = default_model
+def _build_find_system() -> str:
+    base = _read(PROMPTS_DIR / "find_nye_aktier.yaml")
+    overlay = (
+        "\n\nAdditional requirement:\n"
+        "- Return only valid JSON under key 'items' as an array of objects.\n"
+        "- Each object must include: id, date, summary, verdict, priority, ticker.\n"
+        "- Add a 'ticker' field with the uppercase stock symbol for each item.\n"
+        "- Target 15 to 30 items.\n"
+    )
+    return base + overlay
 
-    async def _call(self, messages: List[Dict[str, str]], *, provider: Optional[str] = None, model: Optional[str] = None, temperature: float = 0.2, max_tokens: int = 2500) -> str:
-        p = self.registry.get(provider or self.default_provider)
-        return await p.chat(messages, model=model or self.default_model, temperature=temperature, max_tokens=max_tokens)
+def _build_deep_system() -> str:
+    return _read(PROMPTS_DIR / "undersoeg_aktier_dybt.yaml")
 
-    async def plan(self, ticker: str, hypothesis: Optional[str] = None) -> Dict[str, Any]:
-        prompt = f"""
-Udarbejd en kort forskningsplan for {ticker}. Fokus: small eller micro cap.
-Lever i JSON:
-{{
-  "key_questions": ["..."],
-  "data_to_collect": ["..."],
-  "red_flags": ["..."],
-  "valuation_checks": ["..."],
-  "initial_hypothesis": "{hypothesis or 'ukendt'}"
-}}
-Kun JSON.
-"""
-        out = await self._call([_msg("system", SYSTEM_RESEARCH_PROMPT), _msg("user", prompt)])
-        # Simpelt parse; antaget gyldigt JSON fra modellen
-        import json
-        return json.loads(out)
+def _extract_ticker_from_id(s: str) -> Optional[str]:
+    # Simpel heuristik: før første underscore
+    if not s:
+        return None
+    t = s.split("_", 1)[0].upper()
+    return t if t.isalnum() else None
 
-    async def propose_queries(self, plan: Dict[str, Any], ticker: str) -> List[str]:
-        prompt = f"""
-Ud fra denne plan og ticker {ticker}, generer 6 web-søgeforespørgsler som strenge i en JSON-liste.
-Plan:
-{plan}
-Kun JSON-listen.
-"""
-        out = await self._call([_msg("system", SYSTEM_RESEARCH_PROMPT), _msg("user", prompt)])
-        import json
-        return json.loads(out)
-
-    async def fetch_web_facts(self, queries: List[str]) -> List[Dict[str, Any]]:
-        # Placeholder: her kan integreres Bing, SerpAPI, egen scraper m.m.
-        # Returnerer tomme facts med "source" og "snippet".
-        # Integration kan ske via en ekstern service eller et async modul.
-        facts = []
-        ts = dt.datetime.utcnow().isoformat() + "Z"
-        for q in queries:
-            facts.append({"query": q, "source": "web.search.stub", "retrieved_at": ts, "snippet": "Ingen live-søgning aktiveret i denne prototype."})
-        return facts
-
-    async def summarise_and_score(self, ticker: str, facts: List[Dict[str, Any]]) -> Dict[str, Any]:
-        prompt = f"""
-Opsummer disse fund for {ticker} i JSON med felter:
-{{
-  "company_overview": "string",
-  "catalysts": ["..."],
-  "risks": ["..."],
-  "quality_score": 0..10,
-  "confidence": 0..1,
-  "missing_information": ["..."]
-}}
-Vær kritisk og kortfattet. Kun JSON.
-Data:
-{facts}
-"""
-        out = await self._call([_msg("system", SYSTEM_RESEARCH_PROMPT), _msg("user", prompt)])
-        import json
-        return json.loads(out)
-
-    async def build_report(self, ticker: str, plan: Dict[str, Any], summary: Dict[str, Any]) -> Dict[str, Any]:
-        # Kan udvides med valuation-blok, teknisk analyse, sentiment m.m.
-        return {
+def _normalize_find(raw: Any) -> List[Dict[str, Any]]:
+    rows = raw
+    if isinstance(raw, dict):
+        rows = raw.get("items") or raw.get("results") or []
+    items: List[Dict[str, Any]] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        _id = str(r.get("id", "")).strip()
+        ticker = (r.get("ticker") or _extract_ticker_from_id(_id) or "").upper()
+        item = {
+            "id": _id,
+            "date": str(r.get("date", "")),
+            "summary": str(r.get("summary", "")),
+            "verdict": str(r.get("verdict", "")),
+            "priority": int(r.get("priority", 999)),
             "ticker": ticker,
-            "as_of": dt.datetime.utcnow().isoformat() + "Z",
-            "plan": plan,
-            "findings": summary,
-            "disclaimer": "Ikke investeringsråd. Kun til test og udvikling."
         }
+        if item["ticker"]:
+            items.append(item)
+    items = sorted(items, key=lambda x: x["priority"])[:30]
+    return items
 
-    async def run(self, ticker: str, hypothesis: Optional[str] = None, provider: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
-        plan = await self.plan(ticker, hypothesis)
-        queries = await self.propose_queries(plan, ticker)
-        facts = await self.fetch_web_facts(queries)
-        summary = await self.summarise_and_score(ticker, facts)
-        report = await self.build_report(ticker, plan, summary)
-        report["provider"] = provider or self.default_provider
-        report["model"] = model or self.default_model
-        return report
+def _normalize_deep(raw: Dict[str, Any], wanted_ticker: str) -> Optional[Dict[str, Any]]:
+    rid = raw.get("id", "")
+    rdate = raw.get("date", "")
+    reviews = raw.get("review") or []
+    best: Optional[Dict[str, Any]] = None
+    for r in reviews:
+        t = str(r.get("ticker", "")).upper()
+        if not best or t == wanted_ticker:
+            best = {
+                "id": rid,
+                "date": rdate,
+                "ticker": t or wanted_ticker,
+                "company_name": r.get("company_name"),
+                "thesis": r.get("thesis"),
+                "catalysts": r.get("catalysts") or [],
+                "risks": r.get("risks") or [],
+                "red_flags": r.get("red_flags") or [],
+                "plan": r.get("plan") or {},
+                "verdict": r.get("verdict"),
+                "confidence": r.get("confidence"),
+                "citations": r.get("citations") or [],
+            }
+            if t == wanted_ticker:
+                break
+    return best
 
+async def _call_json(provider: ChatProvider, system: str, user_obj: Dict[str, Any], *, model: str, use_responses: bool = False) -> Any:
+    """
+    Kald provider og få JSON tilbage. 
+    use_responses=True bruger Responses endepunkt via provider.web_search, ellers chat().
+    """
+    if use_responses:
+        # Responses: send hele prompten i 'messages' så værktøjer kan bruges
+        extra = {
+            "include_raw_response": False,
+            "messages": [
+                {"role": "system", "content": "Return only valid JSON. No markdown, no comments."},
+                {"role": "system", "content": system},
+                {"role": "user", "content": json.dumps(user_obj)},
+            ],
+            "tools": [{"type": "web_search"}],
+            "temperature": 0.2,
+            "max_output_tokens": 2048,
+        }
+        res = await provider.web_search(prompt="", model=model, extra=extra)
+        return json.loads(res["text"])
+    else:
+        messages = [
+            {"role": "system", "content": "Return only valid JSON. No markdown, no comments."},
+            {"role": "system", "content": system},
+            {"role": "user", "content": json.dumps(user_obj)},
+        ]
+        txt = await provider.chat(messages, model=model, temperature=0.2, max_tokens=2048)
+        return json.loads(txt)
+
+async def run_research_loop(
+    provider: ChatProvider,
+    *,
+    today: str,
+    universe_hint: Optional[str] = None,
+    find_model: str = None,
+    deep_model: str = None,
+    max_names: int = 30
+) -> Dict[str, Any]:
+    """
+    1) YAML 1: find 15–30 tickers med web søgning
+    2) YAML 3: deep research for hver ticker
+    """
+    find_model = find_model or os.getenv("OPENAI_SEARCH_MODEL", "gpt-4.1-mini")
+    deep_model = deep_model or os.getenv("OPENAI_DEEP_MODEL", "gpt-5-thinking")
+
+    # 1) Find nye aktier
+    find_system = _build_find_system()
+    find_input = {
+        "id": f"find_{today}",
+        "prompt": universe_hint or "Find attractive micro-cap stocks for this week with verifiable catalysts."
+    }
+    find_raw = await _call_json(provider, find_system, find_input, model=find_model, use_responses=True)
+    found = _normalize_find(find_raw)
+    if max_names:
+        found = found[:max_names]
+
+    # 2) Dybreviews per ticker
+    deep_system = _build_deep_system()
+    deep_reviews: List[Dict[str, Any]] = []
+    for item in found:
+        deep_input = {
+            "id": item["id"],
+            "date": today,
+            "prompt": f"Research deeply the ticker {item['ticker']} and return JSON as specified."
+        }
+        deep_raw = await _call_json(provider, deep_system, deep_input, model=deep_model, use_responses=True)
+        deep = _normalize_deep(deep_raw, item["ticker"])
+        if deep:
+            deep_reviews.append(deep)
+
+    return {
+        "as_of": today,
+        "found_count": len(found),
+        "found": found,
+        "deep_count": len(deep_reviews),
+        "deep_reviews": deep_reviews
+    }

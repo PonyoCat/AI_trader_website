@@ -5,8 +5,8 @@ from app.models_ai import (
     ResearchRequest, ResearchResponse,
 )
 from app.adapters.ai.chat_provider_registry import ProviderRegistry
-from app.adapters.ai.openai_provider import OpenAIProvider
-from app.adapters.ai.gemini_provider import GeminiProvider
+from app.adapters.ai.provider_openai import OpenAIProvider
+from app.adapters.ai.provider_gemini import GeminiProvider
 from app.adapters.ai.research import DeepResearchEngine
 
 router = APIRouter(prefix="/ai", tags=["ai"])

@@ -2,29 +2,11 @@
 import { useEffect, useMemo, useState} from "react";
 import { useSearchParams } from "react-router-dom";
 import { buy, sell, type PlaceOrderResponse } from "../lib/api";
+import { CONTEXT_PROMPT, MANAGE_PROMPT, RESEARCH_PROMPT } from "src/lib/prompts";
 
-
-const MANAGE_POSITIONS_PROMPT = `XXxDu er en assistent der returnerer KUN gyldig JSON (ingen kodeblokke).
-Generér en handelsnote i dette schema og fyld alle felter:
-{
-  "ticker": "string",
-  "setup": "string",
-  "entry": number,
-  "stop": number,
-  "target": number,
-  "timeframe": "string",
-  "rationale": "string",
-  "confidence": number
-}
-Krav:
-- Returnér KUN JSON. Ingen kommentarer, ingen markdown, ingen forklaring.
-- "confidence" i [0,1].
-- Brug punktum som decimalseparator.
-Eksempel på gyldigt output:
-{"ticker":"AAPL","setup":"Breakout","entry":229.5,"stop":224.0,"target":238.0,"timeframe":"H1","rationale":"Volumen øges, brud over modstand","confidence":0.72}
-Indsæt dine faktiske værdier, ikke placeholders.`;
-
-const DEEPRESEARCH_STOCKS_PROMPT = `Du skal udføre deep research på aktier.`;
+const AI_CONTEXT = CONTEXT_PROMPT;
+const MANAGE_POSITIONS_PROMPT = MANAGE_PROMPT;
+const DEEPRESEARCH_STOCKS_PROMPT = RESEARCH_PROMPT;
 
 type ModelOpt = "gpt-5" | "gpt-4o" | "gpt-4o-mini" | "gpt-3.5";
 type Mode = "manage" | "research";
